@@ -1,4 +1,20 @@
+# secrets — never commit
 .env
-__pycache__/
-*.db
+BUILD_PLAN.md
+
+# python
 .venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# local data
+*.db
+*.db-journal
+!demo/story.db
+demo/runs/quota.json
+demo/runs/*/context_*.md
+demo/runs/*/pending_*.md
+
+# run logs (the demo run is snapshotted into demo/runs/ by `story export`)
+/runs/

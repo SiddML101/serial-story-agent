@@ -1,0 +1,11 @@
+openai
+pydantic
+typer
+rich
+python-dotenv
+pyyaml
+scikit-learn
+pytest
+fastapi
+uvicorn
+httpx

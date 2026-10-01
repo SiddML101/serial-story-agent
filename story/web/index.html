@@ -1,0 +1,569 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Serial Story Agent</title>
+<style>
+:root {
+  --bg: #f6f5f2; --panel: #ffffff; --ink: #1d1d1b; --muted: #6b6a66; --line: #e3e1db;
+  --accent: #3d5afe; --accent-ink: #ffffff; --ok: #1b7f4b; --warn: #a86400; --bad: #b3261e;
+  --ok-bg: #e6f4ec; --warn-bg: #fdf2dd; --bad-bg: #fbe9e7; --chip: #efeee9; --code: #f1f0ec;
+  --shadow: 0 1px 2px rgba(0,0,0,.05), 0 2px 8px rgba(0,0,0,.04);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #141413; --panel: #1d1d1b; --ink: #ecebe6; --muted: #9a998f; --line: #33322e;
+    --accent: #8c9eff; --accent-ink: #10122a; --ok: #5cc98b; --warn: #e3a648; --bad: #ef7a70;
+    --ok-bg: #16301f; --warn-bg: #362812; --bad-bg: #3a1a17; --chip: #2a2926; --code: #24231f;
+    --shadow: none;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #141413; --panel: #1d1d1b; --ink: #ecebe6; --muted: #9a998f; --line: #33322e;
+  --accent: #8c9eff; --accent-ink: #10122a; --ok: #5cc98b; --warn: #e3a648; --bad: #ef7a70;
+  --ok-bg: #16301f; --warn-bg: #362812; --bad-bg: #3a1a17; --chip: #2a2926; --code: #24231f; --shadow: none;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+header { position: sticky; top: 0; z-index: 5; background: var(--panel); border-bottom: 1px solid var(--line);
+  display: flex; gap: 12px; align-items: center; padding: 10px 16px; flex-wrap: wrap; }
+header h1 { font-size: 15px; margin: 0 8px 0 0; white-space: nowrap; }
+nav { display: flex; gap: 2px; flex-wrap: wrap; }
+nav button { background: none; border: 0; padding: 6px 10px; border-radius: 6px; color: var(--muted); cursor: pointer; font: inherit; }
+nav button.on { background: var(--chip); color: var(--ink); font-weight: 600; }
+.grow { flex: 1; }
+main { max-width: 1180px; margin: 0 auto; padding: 16px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; margin-bottom: 14px; box-shadow: var(--shadow); }
+.card h2 { font-size: 15px; margin: 0 0 8px; }
+.card h3 { font-size: 13px; margin: 12px 0 6px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.row { display: flex; gap: 14px; flex-wrap: wrap; }
+.col { flex: 1 1 340px; min-width: 0; }
+.muted { color: var(--muted); }
+.small { font-size: 12px; }
+button.btn, .btn { font: inherit; border: 1px solid var(--line); background: var(--panel); color: var(--ink); padding: 6px 12px;
+  border-radius: 7px; cursor: pointer; }
+.btn:hover { border-color: var(--muted); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.btn.danger { color: var(--bad); }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; align-items: center; }
+textarea, input[type=text], input[type=password], select { font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line);
+  border-radius: 7px; padding: 7px 9px; width: 100%; }
+textarea.prose { min-height: 460px; font: 15px/1.65 Georgia, "Times New Roman", serif; padding: 14px; resize: vertical; }
+.chip { display: inline-block; padding: 1px 8px; border-radius: 99px; background: var(--chip); font-size: 12px; margin: 0 4px 4px 0; }
+.chip.ok { background: var(--ok-bg); color: var(--ok); } .chip.warn { background: var(--warn-bg); color: var(--warn); }
+.chip.bad { background: var(--bad-bg); color: var(--bad); } .chip.acc { background: var(--accent); color: var(--accent-ink); }
+.banner { padding: 9px 12px; border-radius: 8px; margin: 8px 0; }
+.banner.warn { background: var(--warn-bg); color: var(--warn); } .banner.bad { background: var(--bad-bg); color: var(--bad); }
+.banner.ok { background: var(--ok-bg); color: var(--ok); }
+table { border-collapse: collapse; width: 100%; } th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 12px; color: var(--muted); font-weight: 600; }
+tr.click { cursor: pointer; } tr.click:hover td { background: var(--chip); }
+.diff .old { color: var(--bad); text-decoration: line-through; opacity: .8; } .diff .new { color: var(--ok); }
+.diff > div { margin-bottom: 8px; }
+.beat { padding: 6px 0; border-bottom: 1px dashed var(--line); display: flex; gap: 10px; }
+.beat .n { width: 34px; flex: none; color: var(--muted); font-variant-numeric: tabular-nums; }
+.beat .t { flex: 1; } .beat.done .t { color: var(--muted); }
+.beat > button, .beat > span:last-child { align-self: flex-start; }
+a { color: var(--accent); }
+details summary { cursor: pointer; padding: 4px 0; } details summary b { font-weight: 600; }
+.prose-view { font: 16px/1.7 Georgia, serif; white-space: pre-wrap; max-width: 70ch; }
+#jobbar { display: none; position: fixed; left: 50%; transform: translateX(-50%); bottom: 16px; z-index: 10; background: var(--ink); color: var(--bg);
+  padding: 9px 16px; border-radius: 99px; box-shadow: 0 4px 18px rgba(0,0,0,.2); max-width: calc(100% - 32px); font-size: 13px; }
+#jobbar.show { display: flex; gap: 10px; align-items: center; }
+.spin { width: 12px; height: 12px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: s 0.8s linear infinite; flex: none; }
+@keyframes s { to { transform: rotate(360deg); } }
+#toast { position: fixed; right: 16px; top: 64px; z-index: 11; max-width: 420px; }
+#toast div { background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--accent); padding: 9px 12px; border-radius: 8px; margin-bottom: 8px; box-shadow: var(--shadow); }
+#toast div.bad { border-left-color: var(--bad); }
+.quota { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 3px; }
+.stat { display: inline-block; margin-right: 22px; } .stat b { display: block; font-size: 20px; }
+.hide { display: none !important; }
+.kv { display: grid; grid-template-columns: 120px 1fr; gap: 2px 10px; }
+@media (max-width: 640px) { header h1 { width: 100%; } textarea.prose { min-height: 300px; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>✒ Serial Story Agent</h1>
+  <select id="story" style="width:auto;max-width:280px"></select>
+  <button class="btn" id="newBtn">New story</button>
+  <nav id="tabs"></nav>
+  <span class="grow"></span>
+  <span id="quota" class="small muted"></span>
+  <button class="btn" id="themeBtn" title="Toggle theme">◐</button>
+</header>
+<main id="view"></main>
+<div id="jobbar"><span class="spin"></span><span id="jobtext"></span></div>
+<div id="toast"></div>
+
+<script>
+const TABS = [["write", "Write"], ["plan", "Plan"], ["episodes", "Episodes"], ["memory", "Memory"], ["activity", "Activity"], ["cost", "Cost"], ["settings", "⚙ Settings"]];
+const S = { sid: null, tab: "write", status: null };
+const $ = (sel, el = document) => el.querySelector(sel);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const view = $("#view");
+
+try { const t = localStorage.getItem("theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+$("#themeBtn").onclick = () => {
+  const cur = document.documentElement.dataset.theme || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+  const next = cur === "dark" ? "light" : "dark"; document.documentElement.dataset.theme = next;
+  try { localStorage.setItem("theme", next); } catch (e) {}
+};
+
+function toast(msg, bad = false) {
+  const d = document.createElement("div"); if (bad) d.className = "bad"; d.textContent = msg;
+  if (bad) {  // errors stay until dismissed
+    const x = document.createElement("button"); x.textContent = "✕"; x.className = "btn small"; x.style.float = "right";
+    x.style.marginLeft = "8px"; x.onclick = () => d.remove(); d.prepend(x);
+  } else setTimeout(() => d.remove(), 4500);
+  $("#toast").appendChild(d);
+}
+function friendly(msg) {
+  if (/503|high demand|UNAVAILABLE|InternalServerError/i.test(msg)) return "Google's free models are overloaded right now (503). Your progress is saved — wait a few minutes and press Resume.";
+  if (/quota/i.test(msg)) return msg + " Your progress is saved; continue after the reset or switch keys in ⚙ Settings.";
+  return msg;
+}
+async function api(path, opts = {}) {
+  const r = await fetch(path, { headers: { "Content-Type": "application/json" }, ...opts,
+    body: opts.body ? JSON.stringify(opts.body) : undefined });
+  const data = await r.json().catch(() => null);
+  if (!r.ok) throw new Error((data && data.detail) || r.statusText);
+  return data;
+}
+const sapi = (p, opts) => api(`/api/stories/${S.sid}${p}`, opts);
+
+async function runJob(promise, label) {
+  const { job } = await promise;
+  const bar = $("#jobbar"); bar.classList.add("show"); $("#jobtext").textContent = label;
+  while (true) {
+    await new Promise(r => setTimeout(r, 1200));
+    const j = await api(`/api/jobs/${job}`);
+    $("#jobtext").textContent = j.progress.length ? j.progress[j.progress.length - 1] : label;
+    if (j.status !== "running") {
+      bar.classList.remove("show");
+      if (j.status === "error") throw new Error(j.error);
+      return j.result;
+    }
+  }
+}
+async function guarded(fn) {
+  try { return await fn(); } catch (e) { toast(friendly(e.message), true); }
+}
+
+// ---------- shell ----------
+function renderTabs() {
+  $("#tabs").innerHTML = TABS.map(([k, l]) => `<button data-t="${k}" class="${S.tab === k ? "on" : ""}">${l}</button>`).join("");
+  $("#tabs").querySelectorAll("button").forEach(b => b.onclick = () => { S.tab = b.dataset.t; try { localStorage.setItem("tab", S.tab); } catch (e) {} history.replaceState(null, "", "#" + S.tab); route(); });
+}
+async function loadStories(select) {
+  const list = await api("/api/stories");
+  const sel = $("#story");
+  sel.innerHTML = list.length ? list.map(s => `<option value="${s.id}">${esc(s.title || s.premise.slice(0, 50))} · ${s.last_approved_ep}/200</option>`).join("")
+    : `<option value="">(no stories yet)</option>`;
+  S.sid = select || S.sid || (list[0] && list[0].id) || null;
+  if (S.sid) sel.value = S.sid;
+  return list;
+}
+$("#story").onchange = (e) => { S.sid = e.target.value; route(); };
+$("#newBtn").onclick = () => { S.tab = "new"; route(); };
+
+async function refreshStatus() {
+  if (!S.sid) return null;
+  S.status = await sapi("/status");
+  const q = S.status.quota;
+  $("#quota").innerHTML = Object.entries(q).map(([m, ok]) =>
+    `<span title="${esc(m)}: ${ok ? "quota available" : "daily quota used up"}"><span class="quota" style="background:var(--${ok ? "ok" : "bad"})"></span></span>`).join("")
+    + ` <span title="list-price spend (actual $0)">$${S.status.spend_list_usd}</span>`;
+  return S.status;
+}
+async function route() {
+  renderTabs();
+  if (S.tab === "settings") return guarded(renderSettings);
+  if (S.tab === "new" || !S.sid) return renderNew();
+  await guarded(refreshStatus);
+  const fn = { write: renderWrite, plan: renderPlan, episodes: renderEpisodes, memory: renderMemory, activity: renderActivity, cost: renderCost }[S.tab];
+  view.innerHTML = `<div class="card muted">Loading…</div>`;
+  await guarded(fn);
+}
+
+// ---------- new story ----------
+function renderNew() {
+  view.innerHTML = `<div class="card"><h2>New story</h2>
+    <p class="muted">One line. The planner writes a bible, a cast, 5 acts, 20 arcs and 200 episode beats (about 6 writer calls; a few minutes on the free tier).</p>
+    <textarea id="premise" rows="3" placeholder="A delivery rider realizes every address on today's route belongs to someone who died in the same building."></textarea>
+    <div class="actions"><button class="btn primary" id="go">Plan the story</button></div></div>`;
+  $("#go").onclick = () => guarded(async () => {
+    const premise = $("#premise").value.trim(); if (!premise) return toast("Write a premise first.", true);
+    const start = await api("/api/stories", { method: "POST", body: { premise } });
+    await loadStories(start.story_id); S.tab = "plan";
+    try {
+      await runJob(Promise.resolve(start), "Planning…");
+      toast("Plan ready. Review it, then approve.");
+    } finally { route(); }
+  });
+}
+
+// ---------- write ----------
+function checksPanel(ep) {
+  const c = ep.checks || {}; const crit = c.critic || {};
+  const rules = (c.rules || []).map(r => `<span class="chip ${r.ok ? "ok" : (r.level === "fail" ? "bad" : "warn")}" title="${esc(r.detail)}">${r.ok ? "✓" : (r.level === "fail" ? "✗" : "!")} ${esc(r.name)}</span>`).join("");
+  const issues = (crit.issues || []).map(i => `<tr><td><span class="chip ${i.severity === "high" ? "bad" : i.severity === "med" ? "warn" : ""}">${esc(i.severity)}</span> ${esc(i.type)}</td><td>“${esc(i.evidence)}”<div class="small muted">→ ${esc(i.fix)}</div></td></tr>`).join("");
+  const hist = (c.history || []).map(h => `<div class="small muted">pass ${h.revision + 1}: ${h.words} words — ${h.passed ? "passed" : esc((h.failures || []).join("; ").slice(0, 220))}</div>`).join("");
+  return `${c.needs_human ? `<div class="banner warn"><b>Needs your call.</b> Checks still fail after ${c.revisions} revision(s) or the cost cap:<br>${(c.failures || []).map(esc).join("<br>")}</div>` : ""}
+    <div class="kv small"><span class="muted">words</span><span>${ep.word_count}</span>
+    <span class="muted">hook</span><span>${ep.delta ? `<b>${esc(ep.delta.hook_type)}</b>: ${esc(ep.delta.hook)}` : "—"}</span>
+    <span class="muted">critic</span><span>hook ${crit.hook_score ?? "—"}/5 · momentum ${crit.momentum_score ?? "—"}/5</span>
+    <span class="muted">revisions</span><span>${c.revisions ?? 0}</span>
+    <span class="muted">cost</span><span>$0 actual · $${(ep.cost_usd || 0).toFixed(4)} list · context ${c.context_tokens ?? "?"} tokens</span></div>
+    <h3>Checks</h3>${rules || '<span class="muted small">none</span>'}
+    ${issues ? `<h3>Critic issues</h3><table>${issues}</table>` : ""}
+    ${hist ? `<h3>History</h3>${hist}` : ""}
+    ${ep.delta ? `<h3>What memory will record</h3><div class="small">${esc(ep.delta.summary)}</div>` : ""}`;
+}
+
+async function renderWrite() {
+  const st = S.status;
+  if (!st.approved_plan_version) {
+    view.innerHTML = `<div class="card"><h2>Plan not approved yet</h2><p class="muted">Review and approve the 200-episode plan before writing.</p>
+      <div class="actions"><button class="btn primary" onclick="S.tab='plan';route()">Go to plan</button></div></div>`; return;
+  }
+  if (st.pending_boundary) return renderBoundary(st.pending_boundary);
+  if (st.next_ep > st.total_episodes) { view.innerHTML = `<div class="card"><h2>All ${st.total_episodes} episodes are written.</h2></div>`; return; }
+  const data = await sapi(`/episodes/${st.next_ep}`);
+  const beat = data.beat;
+  const plan = (await sapi("/plan")).plan;
+  const upcoming = plan.beats.filter(b => b.ep > st.next_ep && b.ep <= st.next_ep + 3);
+  const head = `<div class="card"><h2>Episode ${st.next_ep} <span class="muted">of ${st.total_episodes}</span></h2>
+    <div><b>Planned beat:</b> ${esc(beat ? beat.beat : "(none)")} ${beat && beat.human_owned ? '<span class="chip acc">you wrote this</span>' : ""}</div>
+    <details class="small muted"><summary>Next beats</summary>${upcoming.map(b => `<div>Ep ${b.ep}: ${esc(b.beat)}</div>`).join("")}</details></div>`;
+  const d = data.draft;
+  if (!d) {
+    view.innerHTML = head + `<div class="card"><h2>No draft yet</h2>
+      <input type="text" id="note" placeholder="Optional note for this episode only (e.g. 'open on Mira')">
+      <div class="actions"><button class="btn primary" id="draftBtn">Draft episode ${st.next_ep}</button>
+      <button class="btn" id="fbBtn">Give feedback first</button></div>
+      <p class="small muted">Draft → extract memory → rule checks → critic → up to 2 targeted revisions within the cost cap. Nothing becomes canon until you approve.</p></div>`;
+    $("#draftBtn").onclick = () => guarded(async () => {
+      await runJob(sapi("/draft", { method: "POST", body: { note: $("#note").value.trim() || null } }), `Writing episode ${st.next_ep}…`);
+      route();
+    });
+    $("#fbBtn").onclick = () => openFeedback();
+    return;
+  }
+  view.innerHTML = head + `<div class="row">
+    <div class="col card" style="flex:2 1 520px"><h2>Draft v${d.version} <span class="muted small" id="wc"></span></h2>
+      <textarea class="prose" id="txt">${esc(d.text)}</textarea>
+      <div class="small muted">Edit freely. Approving edited text re-extracts memory from <i>your</i> version.</div>
+      <div class="actions">
+        <button class="btn primary" id="appr">Approve</button>
+        <button class="btn" id="rej">Reject & rewrite…</button>
+        <button class="btn" id="fb">Feedback…</button>
+        <button class="btn hide" id="undo">Discard my edits</button>
+      </div>
+      <div id="rejbox" class="hide" style="margin-top:10px"><input type="text" id="reason" placeholder="Why? This goes straight into the rewrite.">
+        <div class="actions"><button class="btn danger" id="rejgo">Reject and rewrite</button>
+        <label class="small"><input type="checkbox" id="carry"> also make it standing feedback</label></div></div>
+    </div>
+    <div class="col card" style="flex:1 1 320px">${checksPanel(d)}</div></div>`;
+  const txt = $("#txt"), orig = d.text;
+  const upd = () => { const w = txt.value.trim().split(/\s+/).filter(Boolean).length; const edited = txt.value.trim() !== orig.trim();
+    $("#wc").textContent = `· ${w} words${edited ? " · edited" : ""}`; $("#appr").textContent = edited ? "Approve with my edits" : "Approve";
+    $("#undo").classList.toggle("hide", !edited); };
+  txt.oninput = upd; upd();
+  $("#undo").onclick = () => { txt.value = orig; upd(); };
+  $("#appr").onclick = () => guarded(async () => {
+    const edited = txt.value.trim() !== orig.trim();
+    const res = await runJob(sapi(`/episodes/${d.ep}/approve`, { method: "POST", body: { text: edited ? txt.value : null } }), "Committing…");
+    toast(`Episode ${d.ep} approved${edited ? " with your edits" : ""}.`);
+    await loadStories(); route();
+  });
+  $("#rej").onclick = () => $("#rejbox").classList.toggle("hide");
+  $("#rejgo").onclick = () => guarded(async () => {
+    const reason = $("#reason").value.trim(); if (!reason) return toast("Give a reason.", true);
+    if ($("#carry").checked) { await openFeedback(reason, true); }
+    await runJob(sapi(`/episodes/${d.ep}/reject`, { method: "POST", body: { reason } }), `Rewriting episode ${d.ep}…`);
+    toast("Rewritten with your reason."); route();
+  });
+  $("#fb").onclick = () => openFeedback(null, false, d.ep);
+}
+
+async function renderBoundary(b) {
+  let diff = "";
+  if (b.replan_to) {
+    const ch = await sapi(`/plan/diff?v1=${b.replan_from}&v2=${b.replan_to}`);
+    diff = `<h3>Next arc replanned from what actually happened (v${b.replan_from} → v${b.replan_to})</h3><div class="diff">${diffHtml(ch)}</div>`;
+  }
+  view.innerHTML = `<div class="card"><h2>Arc ${b.arc_no} complete — review</h2>
+    ${(b.errors || []).map(e => `<div class="banner bad">${esc(e)}</div>`).join("")}
+    <h3>Arc summary (replaces its episodes in memory)</h3><div>${esc(b.summary)}</div>
+    ${(b.corrections || []).length ? `<h3>Audit corrections</h3>${b.corrections.map(c => `<div class="small">• <b>${esc(c.character_id)}</b>: ${esc(JSON.stringify(c.changes))} <span class="muted">(${esc(c.reason)})</span></div>`).join("")}` : ""}
+    ${diff}
+    <div class="actions">${b.replan_to ? `<button class="btn primary" id="acc">Accept replan</button><button class="btn" id="rev">Revert to previous beats</button>`
+      : `<button class="btn primary" id="acc">Continue</button>`}</div></div>`;
+  const decide = (decision) => guarded(async () => { await sapi("/boundary/decision", { method: "POST", body: { decision } }); route(); });
+  $("#acc").onclick = () => decide("accepted");
+  if ($("#rev")) $("#rev").onclick = () => decide("reverted");
+}
+
+function diffHtml(changes) {
+  return changes.filter(c => c.kind === "beat").map(c => `<div><b>Ep ${c.ep}</b><div class="old">${esc(c.old)}</div><div class="new">${esc(c.new)}</div></div>`).join("")
+    + (changes.some(c => c.kind === "arc") ? `<div class="small muted">${changes.filter(c => c.kind === "arc").length} arc(s) changed</div>` : "");
+}
+
+// ---------- feedback (shared) ----------
+async function openFeedback(prefill = null, inline = false, draftEp = null) {
+  const box = document.createElement("div"); box.className = "card";
+  box.innerHTML = `<h2>Feedback</h2><p class="small muted">Plain language. It becomes standing directives (checked in every later episode) and rewrites of upcoming beats — never a one-off tweak. You confirm before anything changes.</p>
+    <textarea id="fbtext" rows="3" placeholder="e.g. slow down the romance · kill off the landlord · more dread, less exposition">${esc(prefill || "")}</textarea>
+    <div class="actions"><button class="btn primary" id="route">Route it</button><button class="btn" id="fbclose">Cancel</button></div><div id="routed"></div>`;
+  view.prepend(box); box.scrollIntoView({ behavior: "smooth" });
+  return new Promise((resolve) => {
+    $("#fbclose", box).onclick = () => { box.remove(); resolve(null); };
+    $("#route", box).onclick = () => guarded(async () => {
+      const text = $("#fbtext", box).value.trim(); if (!text) return;
+      const r = await runJob(sapi("/feedback/route", { method: "POST", body: { text } }), "Routing feedback…");
+      const R = r.routed;
+      $("#routed", box).innerHTML = `<div class="banner ok">${esc(R.explanation || "")}</div>
+        ${R.directives.map(d => `<div><span class="chip acc">directive</span> ${esc(d.text)} <span class="muted small">[${esc(d.scope)}]</span></div>`).join("")}
+        <div class="diff" style="margin-top:8px">${R.plan_edits.map(e => `<div><b>Ep ${e.ep}</b> ${r.old_beats[e.ep] && r.old_beats[e.ep].human_owned ? '<span class="chip warn">rewrites a beat you wrote</span>' : ""}<div class="old">${esc(r.old_beats[e.ep] ? r.old_beats[e.ep].beat : "")}</div><div class="new">${esc(e.new_beat)}</div></div>`).join("")}</div>
+        ${R.state_edits.map(s => `<div><span class="chip warn">state</span> ${esc(s.character_id)}: ${esc(JSON.stringify(s.changes))}</div>`).join("")}
+        ${!(R.directives.length || R.plan_edits.length || R.state_edits.length) ? '<div class="banner warn">The router found nothing to change.</div>' : ""}
+        <div class="actions"><button class="btn primary" id="apply">Apply</button><button class="btn" id="discard">Discard</button>
+        ${draftEp ? `<label class="small"><input type="checkbox" id="regen" ${R.regenerate_current ? "checked" : ""}> rewrite the current draft with this</label>` : ""}</div>`;
+      $("#discard", box).onclick = () => { box.remove(); resolve(null); };
+      $("#apply", box).onclick = () => guarded(async () => {
+        const regen = !!($("#regen", box) && $("#regen", box).checked);
+        const out = await sapi("/feedback/apply", { method: "POST", body: { text, stage: r.stage, next_ep: r.next_ep, routed: R, regenerate: regen } });
+        const a = out.applied;
+        toast(`Applied: ${a.directive_ids.length} directive(s), ${a.plan_changes.length} beat change(s).`);
+        if (out.job) await runJob(Promise.resolve({ job: out.job }), "Rewriting with your feedback…");
+        box.remove(); resolve(a); if (!inline) route();
+      });
+    });
+  });
+}
+
+// ---------- plan ----------
+async function renderPlan() {
+  const P = await sapi("/plan");
+  const resume = () => guarded(async () => { try { await runJob(sapi("/plan/generate", { method: "POST" }), "Resuming planning…"); toast("Plan complete. Review it, then approve."); } finally { route(); } });
+  if (!P.plan) {
+    view.innerHTML = `<div class="card"><h2>Planning hasn't finished</h2><p class="muted">The story exists but its plan wasn't generated yet (often the free models were busy). Nothing is lost.</p>
+      <div class="actions"><button class="btn primary" id="gen">Resume planning</button></div></div>`;
+    $("#gen").onclick = resume; return;
+  }
+  if (P.plan.beats.length < S.status.total_episodes) {
+    const actsDone = new Set(P.plan.beats.map(b => Math.ceil(b.ep / 40))).size;
+    view.innerHTML = `<div class="card"><h2>Planning stopped partway</h2>
+      <div class="banner warn">Bible, cast, acts and arcs are saved, and beats for ${actsDone} of ${P.plan.acts.length} acts (${P.plan.beats.length}/200 episodes).
+      The rest wasn't generated, usually because Google's free models were overloaded (503) or out of daily quota.</div>
+      <div class="actions"><button class="btn primary" id="gen">Resume planning</button><span class="small muted">continues from where it stopped; nothing is redone</span></div></div>
+      <div class="card"><h2>${esc(P.bible ? P.bible.title : "")}</h2><div>${esc(P.bible ? P.bible.logline : "")}</div>
+      ${P.plan.acts.map(a => `<h3>Act ${a.act_no}: ${esc(a.title)}</h3><div class="small muted">${esc(a.purpose)} <b>Turning point:</b> ${esc(a.turning_point)}</div>
+        ${P.plan.arcs.filter(x => x.act_no === a.act_no).map(x => `<div class="small">• Arc ${x.arc_no}: <b>${esc(x.title)}</b> — ${esc(x.goal)}</div>`).join("")}`).join("")}</div>`;
+    $("#gen").onclick = resume; return;
+  }
+  const plan = P.plan, st = S.status, last = P.last_approved_ep, v = P.validation;
+  const approved = !!st.approved_plan_version;  // approval is a one-time gate; later edits/replans apply directly
+  const arcHtml = (arc) => `<details ${arc.ep_start <= last + 1 && last + 1 <= arc.ep_end ? "open" : ""}><summary><b>Arc ${arc.arc_no}: ${esc(arc.title)}</b> <span class="muted small">eps ${arc.ep_start}-${arc.ep_end}</span></summary>
+    <div class="small muted" style="margin:4px 0 6px">Goal: ${esc(arc.goal)} · Turning point: ${esc(arc.turning_point)} · Opens: ${esc(arc.threads_opened.join(", ") || "—")} · Resolves: ${esc(arc.threads_resolved.join(", ") || "—")}</div>
+    ${plan.beats.filter(b => b.ep >= arc.ep_start && b.ep <= arc.ep_end).map(b => `<div class="beat ${b.ep <= last ? "done" : ""}" data-ep="${b.ep}"><span class="n">${b.ep}</span>
+      <span class="t">${esc(b.beat)} ${b.human_owned ? '<span class="chip acc">yours</span>' : ""} <span class="chip">${esc(b.hook_type_hint || "")}</span> <span class="small muted">${esc(b.characters.join(", "))}</span></span>
+      ${b.ep > last ? `<button class="btn small" data-edit="${b.ep}">Edit</button>` : '<span class="small muted">written</span>'}</div>`).join("")}</details>`;
+  view.innerHTML = `<div class="card"><h2>${esc(P.bible ? P.bible.title : "Plan")} <span class="muted small">plan v${plan.version} ${approved ? `<span class="chip ok">approved (v${st.approved_plan_version}); later versions apply as you go</span>` : '<span class="chip warn">not approved</span>'}</span></h2>
+      <div>${esc(P.bible ? P.bible.logline : "")}</div>
+      ${v.errors.map(e => `<div class="banner bad">✗ ${esc(e)}</div>`).join("")}
+      ${v.warnings.length ? `<details class="small"><summary>${v.warnings.length} warning(s)</summary>${v.warnings.map(w => `<div class="muted">! ${esc(w)}</div>`).join("")}</details>` : ""}
+      <div class="actions">
+        ${!approved ? `<button class="btn primary" id="approve" ${v.errors.length ? "disabled" : ""}>Approve plan v${plan.version}</button>` : ""}
+        <button class="btn" id="pfb">Steer the plan…</button>
+        <select id="act" style="width:auto">${plan.acts.map(a => `<option value="${a.act_no}">Act ${a.act_no}</option>`).join("")}</select><button class="btn" id="regen">Regenerate act</button>
+        <button class="btn" id="yaml">Edit as YAML</button>
+      </div></div>
+    <div class="row"><div class="col card" style="flex:3 1 560px"><h2>Acts, arcs & beats</h2>
+      ${plan.acts.map(a => `<h3>Act ${a.act_no}: ${esc(a.title)} <span class="muted">(${a.ep_start}-${a.ep_end})</span></h3><div class="small muted">${esc(a.purpose)} <b>Turning point:</b> ${esc(a.turning_point)}</div>${plan.arcs.filter(x => x.act_no === a.act_no).map(arcHtml).join("")}`).join("")}</div>
+    <div class="col card" style="flex:1 1 280px"><h2>Cast</h2>${P.cast.map(c => `<div style="margin-bottom:8px"><b>${esc(c.name)}</b> <span class="muted small">${esc(c.role)}</span><div class="small">${esc(c.goal)}</div><div class="small muted">${esc(plan.character_arcs[c.id] || "")}</div></div>`).join("")}
+      <h2 style="margin-top:14px">Versions</h2>${P.history.slice().reverse().map(h => `<div class="small"><a href="#" data-v="${h.version}">v${h.version}</a> ${h.approved ? "✓" : ""} <span class="muted">${esc(h.reason)}</span></div>`).join("")}
+      <div id="vdiff" class="diff small"></div></div></div>`;
+  if ($("#approve")) $("#approve").onclick = () => guarded(async () => { await sapi("/plan/approve", { method: "POST" }); toast("Plan approved. Start writing."); S.tab = "write"; await loadStories(); route(); });
+  $("#pfb").onclick = () => openFeedback();
+  $("#regen").onclick = () => guarded(async () => { const act = +$("#act").value; if (!confirm(`Regenerate all 40 beats of act ${act}?`)) return;
+    await runJob(sapi("/plan/regen", { method: "POST", body: { act } }), `Regenerating act ${act}…`); route(); });
+  $("#yaml").onclick = () => guarded(editYaml);
+  view.querySelectorAll("[data-edit]").forEach(b => b.onclick = () => {
+    const ep = +b.dataset.edit, row = b.closest(".beat"), cur = plan.beats.find(x => x.ep === ep);
+    row.innerHTML = `<span class="n">${ep}</span><span class="t"><textarea rows="2">${esc(cur.beat)}</textarea>
+      <input type="text" value="${esc(cur.characters.join(", "))}" placeholder="character ids, comma-separated" style="margin-top:4px">
+      <div class="actions"><button class="btn primary">Save beat</button><button class="btn">Cancel</button></div></span>`;
+    const [save, cancel] = row.querySelectorAll("button");
+    cancel.onclick = () => route();
+    save.onclick = () => guarded(async () => {
+      const text = row.querySelector("textarea").value, characters = row.querySelector("input").value.split(",").map(s => s.trim()).filter(Boolean);
+      const r = await sapi(`/plan/beats/${ep}`, { method: "PUT", body: { text, characters } });
+      toast(`Saved as plan v${r.version}. Marked as yours: replans won't overwrite it.`); route();
+    });
+  });
+  view.querySelectorAll("[data-v]").forEach(a => a.onclick = (e) => guarded(async () => { e.preventDefault();
+    const v2 = +a.dataset.v; if (v2 < 2) return; const ch = await sapi(`/plan/diff?v1=${v2 - 1}&v2=${v2}`);
+    $("#vdiff").innerHTML = `<h3>v${v2 - 1} → v${v2}</h3>` + (diffHtml(ch.slice(0, 30)) || '<span class="muted">no beat changes</span>'); }));
+}
+async function editYaml() {
+  const { yaml } = await sapi("/plan/yaml");
+  view.innerHTML = `<div class="card"><h2>Edit plan as YAML</h2><p class="small muted">Validated on save (200 contiguous beats, arc ranges). Changed beats become yours.</p>
+    <textarea id="y" style="min-height:70vh;font:12px/1.45 ui-monospace,Consolas,monospace">${esc(yaml)}</textarea>
+    <div class="actions"><button class="btn primary" id="sy">Save as new version</button><button class="btn" id="cy">Cancel</button></div></div>`;
+  $("#cy").onclick = () => route();
+  $("#sy").onclick = () => guarded(async () => { const r = await sapi("/plan/yaml", { method: "PUT", body: { yaml: $("#y").value } });
+    toast(`Saved plan v${r.version} (${r.changes.length} changes).`); route(); });
+}
+
+// ---------- episodes / retcon ----------
+async function renderEpisodes() {
+  const eps = await sapi("/episodes");
+  view.innerHTML = `<div class="card"><h2>Approved episodes <span class="muted small">${eps.length}</span></h2>
+    <table><tr><th>#</th><th>summary (memory)</th><th>hook</th><th>words</th><th>critic</th></tr>
+    ${eps.map(e => `<tr class="click" data-ep="${e.ep}"><td>${e.ep}${e.human_edited ? ' <span class="chip acc" title="edited by you">✎</span>' : ""}</td><td class="small">${esc(e.summary)}</td><td class="small"><b>${esc(e.hook_type)}</b></td><td>${e.words}</td><td class="small">${e.hook_score ?? "—"}/${e.momentum_score ?? "—"}</td></tr>`).join("")}
+    </table>${eps.length ? "" : '<p class="muted">Nothing approved yet.</p>'}</div>`;
+  view.querySelectorAll("tr[data-ep]").forEach(r => r.onclick = () => guarded(() => renderReader(+r.dataset.ep)));
+}
+async function renderReader(ep) {
+  const d = await sapi(`/episodes/${ep}`); const e = d.approved;
+  view.innerHTML = `<div class="card"><div class="actions" style="margin-top:0"><button class="btn" id="back">← All episodes</button>
+      ${ep > 1 ? `<button class="btn" id="prev">← Ep ${ep - 1}</button>` : ""}<button class="btn" id="next">Ep ${ep + 1} →</button><span class="grow"></span>
+      <button class="btn" id="ret">Rewrite this episode (retcon)…</button></div></div>
+    <div class="row"><div class="col card" style="flex:2 1 520px"><h2>Episode ${ep} <span class="muted small">v${e.version}${e.human_edited ? " · edited by you" : ""}</span></h2>
+      <div class="small muted" style="margin-bottom:10px">Beat: ${esc(d.beat ? d.beat.beat : "")}</div><div class="prose-view" id="pv">${esc(e.text)}</div></div>
+    <div class="col card">${checksPanel(e)}</div></div>`;
+  $("#back").onclick = () => route();
+  if ($("#prev")) $("#prev").onclick = () => guarded(() => renderReader(ep - 1));
+  $("#next").onclick = () => guarded(async () => { if (ep + 1 > S.status.last_approved_ep) { S.tab = "write"; return route(); } renderReader(ep + 1); });
+  $("#ret").onclick = () => {
+    $("#pv").outerHTML = `<textarea class="prose" id="rt">${esc(e.text)}</textarea><div class="banner warn small">Saving rewrites canon: memory is re-extracted and later episodes that relied on the old version are checked for conflicts.</div>
+      <div class="actions"><button class="btn primary" id="rgo">Save rewrite & check later episodes</button><button class="btn" id="rcancel">Cancel</button></div>`;
+    $("#rcancel").onclick = () => renderReader(ep);
+    $("#rgo").onclick = () => guarded(async () => {
+      const rep = await runJob(sapi(`/episodes/${ep}/retcon`, { method: "POST", body: { text: $("#rt").value } }), "Checking later episodes…");
+      renderRetcon(rep);
+    });
+  };
+}
+function renderRetcon(rep) {
+  view.innerHTML = `<div class="card"><h2>Retcon of episode ${rep.ep} <span class="muted small">v${rep.old_version} → v${rep.new_version}</span></h2>
+    <div class="row"><div class="col"><h3>No longer true</h3>${rep.removed_facts.map(t => `<div class="small" style="color:var(--bad)">− ${esc(t)}</div>`).join("") || '<div class="muted small">none</div>'}</div>
+    <div class="col"><h3>Now true</h3>${rep.added_facts.map(t => `<div class="small" style="color:var(--ok)">+ ${esc(t)}</div>`).join("") || '<div class="muted small">none</div>'}</div></div>
+    <h3>Later episodes checked</h3><div class="small">${rep.affected.join(", ") || "none"}</div>
+    ${(rep.check_errors || []).map(c => `<div class="banner warn small">Ep ${c.ep} could not be checked: ${esc(c.error)}</div>`).join("")}
+    <h3>Conflicts</h3>${rep.conflicts.length ? `<table>${rep.conflicts.map(c => `<tr><td>Ep ${c.ep}</td><td class="small">“${esc(c.evidence)}”<div class="muted">→ ${esc(c.fix)}</div></td></tr>`).join("")}</table>
+      <div class="actions"><button class="btn primary" data-r="patch">Patch the ${rep.conflicts.length} flagged episode(s)</button>
+      <button class="btn" data-r="regenerate">Un-canon from ep ${Math.min(...rep.conflicts.map(c => c.ep))} and rewrite</button>
+      <button class="btn" data-r="replan">Replan remaining beats</button><button class="btn" data-r="accept">Accept as-is</button></div>`
+      : '<div class="banner ok">No conflicts found. The rewrite is canon.</div>'}</div>`;
+  view.querySelectorAll("[data-r]").forEach(b => b.onclick = () => guarded(async () => {
+    const res = await runJob(sapi("/retcon/resolve", { method: "POST", body: { resolution: b.dataset.r } }), "Resolving…");
+    toast(`Retcon resolved: ${res.resolution}.`); await loadStories(); S.tab = "episodes"; route();
+  }));
+}
+
+// ---------- memory ----------
+async function renderMemory() {
+  const M = await sapi("/memory"); const next = S.status.next_ep;
+  const statusChip = (s) => `<span class="chip ${s === "alive" ? "ok" : s === "dead" ? "bad" : "warn"}">${esc(s)}</span>`;
+  view.innerHTML = `<div class="card"><h2>Standing directives</h2><p class="small muted">Injected at the top of every draft and checked by the critic. Reword one that is too broad; switch off one that is done.</p>
+      ${M.directives.map(d => `<div class="beat"><span class="n">${d.active ? "●" : "○"}</span><span class="t"><textarea rows="2" data-d="${d.id}">${esc(d.text)}</textarea>
+        <span class="small muted">${esc(d.scope)} · since ep ${d.created_ep}</span></span>
+        <span><button class="btn small" data-save="${d.id}">Save</button><br><button class="btn small" data-tog="${d.id}" data-on="${d.active}">${d.active ? "Turn off" : "Turn on"}</button></span></div>`).join("") || '<span class="muted">None yet. Feedback creates them.</span>'}</div>
+    <div class="row"><div class="col card"><h2>Characters <span class="muted small">${M.characters.length}</span></h2>
+      ${M.characters.map(c => `<details><summary><b>${esc(c.name)}</b> ${statusChip(c.status)} <span class="muted small">${esc(c.role)} · last seen ep ${c.last_seen_ep}</span></summary>
+        <div class="small kv"><span class="muted">location</span><span>${esc(c.location)}</span><span class="muted">goal</span><span>${esc(c.goal)}</span>
+        <span class="muted">secret</span><span>${esc(c.secret)}</span><span class="muted">knows</span><span>${c.knows.map(esc).join("<br>") || "—"}</span>
+        <span class="muted">relations</span><span>${Object.entries(c.relationships).map(([k, v]) => `${esc(k)}: ${esc(v)}`).join("<br>") || "—"}</span></div></details>`).join("")}</div>
+    <div class="col card"><h2>Threads</h2><table><tr><th>thread</th><th>status</th><th>opened / touched / due</th></tr>
+      ${M.threads.map(t => { const over = t.status === "open" && t.due_by_ep && t.due_by_ep < next;
+        return `<tr><td><b>${esc(t.title)}</b><div class="small muted">${esc(t.id)}</div></td><td>${t.status === "open" ? (over ? '<span class="chip bad">overdue</span>' : '<span class="chip">open</span>') : `<span class="chip ok">${esc(t.status)}</span>`}</td><td class="small">${t.opened_ep} / ${t.last_touched_ep} / ${t.due_by_ep ?? "—"}</td></tr>`; }).join("")}</table>
+      <h2 style="margin-top:14px">Facts <span class="muted small">${M.fact_count} active (newest first)</span></h2>
+      ${M.facts.slice(0, 40).map(f => `<div class="small">ep ${f.ep} · ${esc(f.text)}</div>`).join("")}</div></div>
+    <div class="card"><h2>Arc summaries</h2>${Object.entries(M.arc_summaries).map(([n, t]) => `<p><b>Arc ${n}.</b> ${esc(t)}</p>`).join("") || '<span class="muted">None yet (written at the end of each 10-episode arc).</span>'}</div>`;
+  view.querySelectorAll("[data-save]").forEach(b => b.onclick = () => guarded(async () => {
+    const id = b.dataset.save; await sapi(`/directives/${id}`, { method: "PUT", body: { text: view.querySelector(`[data-d="${id}"]`).value } }); toast("Directive reworded."); route(); }));
+  view.querySelectorAll("[data-tog]").forEach(b => b.onclick = () => guarded(async () => {
+    await sapi(`/directives/${b.dataset.tog}`, { method: "PUT", body: { active: b.dataset.on !== "true" } }); route(); }));
+}
+
+// ---------- activity & cost ----------
+async function renderActivity() {
+  const ev = await sapi("/events");
+  const line = (e) => {
+    const k = e.kind;
+    if (k === "feedback") return `Feedback: “${esc(e.text)}” → ${e.directives.length} directive(s), ${e.plan_changes.length} beat change(s). <span class="muted">${esc(e.explanation)}</span>`;
+    if (k === "reject") return `Rejected draft v${e.version}: “${esc(e.reason)}”`;
+    if (k === "human_edit") return `Edited by hand before approval (${e.words_before} → ${e.words_after} words, ${Math.round(e.similarity * 100)}% similar)`;
+    if (k === "plan_edit") return `Plan edited by hand v${e.from_version} → v${e.to_version} (${e.changes.length} change(s))`;
+    if (k === "plan_approved") return `Plan v${e.version} approved`;
+    if (k === "arc_boundary") return `Arc ${e.arc_no} boundary: ${e.corrections.length} audit fix(es), replan ${e.replan_to ? esc(e.decision) : "—"}`;
+    if (k === "retcon") return `Retcon: ${e.removed_facts.length} fact(s) removed, ${e.conflicts.length} conflict(s) in later episodes`;
+    if (k === "retcon_resolution") return `Retcon resolved: ${esc(e.resolution)}`;
+    if (k === "directive_edit") return `Directive reworded: “${esc(e.new)}”`;
+    return esc(k);
+  };
+  view.innerHTML = `<div class="card"><h2>Human-in-the-loop activity</h2><p class="small muted">Newest first. The same events build <code>hitl_log.md</code> on export.</p>
+    <table>${ev.map(e => `<tr><td class="small muted" style="white-space:nowrap">${esc(e.created_at.replace("T", " ").slice(0, 16))}</td><td><span class="chip">ep ${e.ep}</span></td><td>${line(e)}</td></tr>`).join("")}</table>
+    ${ev.length ? "" : '<p class="muted">No interventions yet.</p>'}
+    <div class="actions"><button class="btn" id="exp">Export story files</button><span class="small muted">writes to ${esc(S.status.out_dir)}</span></div></div>`;
+  $("#exp").onclick = () => guarded(async () => { const r = await sapi("/export", { method: "POST", body: {} }); toast(`Exported ${r.files} files to ${r.folder}`); });
+}
+async function renderCost() {
+  const R = await sapi("/report"); const p = R.projection;
+  const steps = Object.entries(R.summary.by_step).sort((a, b) => b[1].list_price_usd - a[1].list_price_usd);
+  const days = p.projected_writer_requests / (R.free_requests_per_day * R.writer_models.length);
+  view.innerHTML = `<div class="card"><h2>Projection to 200 episodes</h2>
+    <div><span class="stat"><b>$${p.projected_list_usd.toFixed(2)}</b><span class="small muted">list price (actual $0, free tier)</span></span>
+    <span class="stat"><b>${p.projected_hours_model_time.toFixed(1)} h</b><span class="small muted">model time</span></span>
+    <span class="stat"><b>${days.toFixed(1)} days</b><span class="small muted">of free writer quota</span></span>
+    <span class="stat"><b>$${p.per_episode_list_usd.toFixed(4)}</b><span class="small muted">per episode (${p.episodes_measured} measured)</span></span></div>
+    <p class="small muted">${Math.round(p.per_episode_tokens).toLocaleString()} tokens and ${p.writer_calls_per_episode.toFixed(2)} writer calls per episode. Writer models: ${R.writer_models.map(esc).join(", ")}.</p></div>
+    <div class="card"><h2>By step</h2><table><tr><th>step</th><th>calls</th><th>failed attempts</th><th>tokens in</th><th>tokens out</th><th>list $</th><th>avg s</th></tr>
+    ${steps.map(([k, b]) => `<tr><td>${esc(k)}</td><td>${b.calls}</td><td>${b.failed_attempts}</td><td>${b.tokens_in.toLocaleString()}</td><td>${b.tokens_out.toLocaleString()}</td><td>${b.list_price_usd.toFixed(4)}</td><td>${(b.latency_ms / Math.max(1, b.calls) / 1000).toFixed(1)}</td></tr>`).join("")}</table></div>`;
+}
+
+// ---------- settings ----------
+async function renderSettings() {
+  const st = await api("/api/settings");
+  view.innerHTML = `<div class="card"><h2>API key</h2>
+    <div style="margin-bottom:10px">Current key: ${st.key_set ? `<span class="chip ok">set</span> <code>${esc(st.key_hint)}</code>` : '<span class="chip bad">not set</span>'}</div>
+    <label class="small muted" for="newkey">New API key</label>
+    <div style="display:flex;gap:8px"><input id="newkey" style="flex:1" type="password" autocomplete="off" spellcheck="false" placeholder="Paste a new key (shown as dots)">
+      <button class="btn" id="eye" title="Show / hide" type="button">👁</button></div>
+    <div class="actions"><button class="btn primary" id="savekey">Test & save</button><span id="keymsg" class="small"></span></div>
+    <p class="small muted">The key is checked with a free model-list call (no generation quota used), then saved to
+      <code>${esc(st.env_file)}</code> on this computer only (gitignored). It takes effect from the next step, no restart needed.
+      The full key is never sent back to this page. Quota is tracked per key, so a key from another Google project starts with a fresh daily allowance.</p></div>
+    <div class="card"><h2>Models</h2><div class="kv small"><span class="muted">provider</span><span>${esc(st.base_url)}</span>
+      <span class="muted">writer chain</span><span>${st.writer_models.map(esc).join(" → ")}</span>
+      <span class="muted">fast chain</span><span>${st.fast_models.map(esc).join(" → ")}</span></div>
+      <p class="small muted">Change models in <code>.env</code> (WRITER_MODEL / FAST_MODEL, comma-separated fallback order).</p></div>`;
+  const inp = $("#newkey");
+  $("#eye").onclick = () => { inp.type = inp.type === "password" ? "text" : "password"; };
+  $("#savekey").onclick = () => guarded(async () => {
+    const key = inp.value.trim(); if (!key) return toast("Paste a key first.", true);
+    $("#savekey").disabled = true; $("#keymsg").textContent = "Checking…";
+    try {
+      const r = await api("/api/settings/key", { method: "POST", body: { api_key: key } });
+      inp.value = ""; toast(r.message); await refreshStatus().catch(() => {}); renderSettings();
+    } catch (e) { $("#keymsg").textContent = ""; throw e; } finally { $("#savekey").disabled = false; }
+  });
+}
+
+// ---------- boot ----------
+(async () => {
+  try { S.tab = localStorage.getItem("tab") || "write"; } catch (e) {}
+  const h = location.hash.slice(1); if (TABS.some(([k]) => k === h)) S.tab = h;
+  await guarded(() => loadStories());
+  const cur = await api("/api/jobs/current").catch(() => null);
+  if (cur && cur.status === "running") { toast(`A job is still running: ${cur.kind}`); runJob(Promise.resolve({ job: cur.id }), cur.kind).then(route).catch(e => toast(e.message, true)); }
+  route();
+})();
+</script>
+</body>
+</html>
